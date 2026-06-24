@@ -19,16 +19,17 @@ export const AIService = {
       1. Debe ser un arreglo valido de objetos.
       2. Cada objeto debe tener:
          - "text": La tarea resumida y clara (max 5 palabras).
-         - "emoji": Un solo emoji que represente la tarea.
+         - "emoji": UN SOLO emoji real (caracter Unicode), jamas uses palabras.
          - "priority": "high", "medium" o "low" (infiere esto segun el contexto).
 
-      Ejemplo de respuesta esperada:
+      Ejemplo correcto:
       [
-        { "text": "Tomar pre-entreno", "emoji": "alimentacion", "priority": "medium" },
-        { "text": "Dia de pierna", "emoji": "ejercicio", "priority": "high" }
+        { "text": "Tomar cafe", "emoji": "\u2615", "priority": "medium" },
+        { "text": "Ir al gym", "emoji": "\uD83C\uDFCB", "priority": "high" }
       ]
 
       IMPORTANTE: Devuelve UNICAMENTE el JSON. Sin texto antes ni despues, sin marcadores de markdown.
+      El campo "emoji" debe ser un emoji real, no una palabra.
     `;
 
     try {

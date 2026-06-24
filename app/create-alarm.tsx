@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Spacing } from '../src/theme/theme';
+import { useTheme } from '../src/theme/ThemeContext';
+import { Spacing } from '../src/theme/theme';
 import { useAlarmStore } from '../src/store/alarmStore';
 import { DayOfWeek, Note } from '../src/domain/entities/alarm';
 import { AIService } from '../src/services/aiService';
@@ -18,8 +19,15 @@ import { AIService } from '../src/services/aiService';
 const DAYS: DayOfWeek[] = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 export default function CreateAlarmScreen() {
+  const { theme } = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ editAlarmId?: string }>();
+  const alarms = useAlarmStore((state) => state.alarms);
   const addAlarm = useAlarmStore((state) => state.addAlarm);
+  const updateAlarm = useAlarmStore((state) => state.updateAlarm);
+
+  const editAlarmId = params.editAlarmId;
+  const isEditing = !!editAlarmId;
 
   const [time, setTime] = useState('07:00');
   const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
@@ -29,6 +37,19 @@ export default function CreateAlarmScreen() {
   const [optimizedNotes, setOptimizedNotes] = useState<Note[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
+  useEffect(() => {
+    if (editAlarmId) {
+      const alarm = alarms.find((a) => a.id === editAlarmId);
+      if (alarm) {
+        setTime(alarm.time);
+        setPeriod(alarm.period);
+        setTitle(alarm.title);
+        setSelectedDays(alarm.days);
+        setOptimizedNotes(alarm.notes);
+      }
+    }
+  }, [editAlarmId, alarms]);
+
   const toggleDay = (day: DayOfWeek) => {
     setSelectedDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
@@ -37,11 +58,10 @@ export default function CreateAlarmScreen() {
 
   const handleOptimize = async () => {
     if (!rawNoteText.trim()) return;
-
     setIsOptimizing(true);
     try {
       const result = await AIService.optimizeNotes(rawNoteText);
-      setOptimizedNotes(result);
+      setOptimizedNotes((prev) => [...prev, ...result]);
       setRawNoteText('');
     } catch {
       alert('Error al conectar con la IA. Revisa tu consola para mas detalles.');
@@ -51,78 +71,92 @@ export default function CreateAlarmScreen() {
   };
 
   const handleSave = () => {
-    const newAlarm = {
-      id: Date.now().toString(),
+    const baseAlarm = {
       time,
       period,
       title: title.trim() || 'Alarma',
-      isActive: true,
       days: selectedDays,
       notes: optimizedNotes,
     };
 
-    addAlarm(newAlarm);
+    if (isEditing && editAlarmId) {
+      updateAlarm(editAlarmId, baseAlarm);
+    } else {
+      addAlarm({
+        id: Date.now().toString(),
+        ...baseAlarm,
+        isActive: true,
+      });
+    }
     router.back();
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.surface }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Nueva Alarma</Text>
+        <Text style={[styles.title, { color: theme.text }]}>
+          {isEditing ? 'Editar Alarma' : 'Nueva Alarma'}
+        </Text>
         <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Cerrar">
-          <MaterialCommunityIcons name="close" size={28} color={Colors.textMuted} />
+          <MaterialCommunityIcons name="close" size={28} color={theme.textMuted} />
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
         <View style={styles.timeSection}>
-          <TextInput
-            style={styles.timeInput}
-            value={time}
-            onChangeText={setTime}
-            keyboardType="numeric"
-            maxLength={5}
-          />
-          <View style={styles.periodSelector}>
+          <View style={styles.timeInputWrapper}>
+            <TextInput
+              style={[styles.timeInput, { color: theme.primary, borderBottomColor: theme.primaryDull }]}
+              value={time}
+              onChangeText={setTime}
+              keyboardType="numeric"
+              maxLength={5}
+              placeholderTextColor={theme.textMuted}
+            />
+          </View>
+          <View style={[styles.periodSelector, { backgroundColor: theme.surfaceLight }]}>
             <TouchableOpacity
-              style={[styles.periodBtn, period === 'AM' && styles.periodBtnActive]}
+              style={[styles.periodBtn, period === 'AM' && { backgroundColor: theme.primary }]}
               onPress={() => setPeriod('AM')}
             >
-              <Text style={[styles.periodText, period === 'AM' && styles.periodTextActive]}>AM</Text>
+              <Text style={[styles.periodText, { color: period === 'AM' ? theme.black : theme.textMuted }]}>AM</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.periodBtn, period === 'PM' && styles.periodBtnActive]}
+              style={[styles.periodBtn, period === 'PM' && { backgroundColor: theme.primary }]}
               onPress={() => setPeriod('PM')}
             >
-              <Text style={[styles.periodText, period === 'PM' && styles.periodTextActive]}>PM</Text>
+              <Text style={[styles.periodText, { color: period === 'PM' ? theme.black : theme.textMuted }]}>PM</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.inputSection}>
-          <Text style={styles.label}>Nombre de la alarma</Text>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>Nombre de la alarma</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { backgroundColor: theme.surfaceLight, color: theme.text }]}
             placeholder="Ej: Entrenamiento, Despertar..."
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             value={title}
             onChangeText={setTitle}
           />
         </View>
 
         <View style={styles.inputSection}>
-          <Text style={styles.label}>Repetir</Text>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>Repetir</Text>
           <View style={styles.daysContainer}>
             {DAYS.map((day) => {
               const isSelected = selectedDays.includes(day);
               return (
                 <TouchableOpacity
                   key={day}
-                  style={[styles.dayCircle, isSelected && styles.dayCircleActive]}
+                  style={[
+                    styles.dayCircle,
+                    { backgroundColor: theme.surfaceLight },
+                    isSelected && { backgroundColor: theme.primary + '33', borderColor: theme.primary },
+                  ]}
                   onPress={() => toggleDay(day)}
                 >
-                  <Text style={[styles.dayText, isSelected && styles.dayTextActive]}>
+                  <Text style={[styles.dayText, { color: isSelected ? theme.primary : theme.textMuted }]}>
                     {day}
                   </Text>
                 </TouchableOpacity>
@@ -131,16 +165,16 @@ export default function CreateAlarmScreen() {
           </View>
         </View>
 
-        <View style={styles.aiSection}>
+        <View style={[styles.aiSection, { borderColor: theme.primary + '33', backgroundColor: theme.primary + '0D' }]}>
           <View style={styles.aiHeader}>
-            <MaterialCommunityIcons name="robot-outline" size={20} color={Colors.primary} />
-            <Text style={styles.aiTitle}>Asistente de Notas (IA)</Text>
+            <MaterialCommunityIcons name="robot-outline" size={20} color={theme.primary} />
+            <Text style={[styles.aiTitle, { color: theme.primary }]}>Asistente de Notas (IA)</Text>
           </View>
 
           <TextInput
-            style={[styles.textInput, styles.textArea]}
-            placeholder="Escribe todo lo que tienes que hacer. La IA lo ordenara por ti..."
-            placeholderTextColor={Colors.textMuted}
+            style={[styles.textInput, styles.textArea, { backgroundColor: theme.surfaceLight, color: theme.text }]}
+            placeholder="Escribe lo que tienes que hacer. La IA lo ordenara..."
+            placeholderTextColor={theme.textMuted}
             value={rawNoteText}
             onChangeText={setRawNoteText}
             multiline
@@ -148,27 +182,27 @@ export default function CreateAlarmScreen() {
           />
 
           <TouchableOpacity
-            style={[styles.aiButton, isOptimizing && styles.aiButtonDisabled]}
+            style={[styles.aiButton, { backgroundColor: theme.primary }, (isOptimizing || !rawNoteText.trim()) && styles.aiButtonDisabled]}
             onPress={handleOptimize}
             disabled={isOptimizing || !rawNoteText.trim()}
           >
             {isOptimizing ? (
-              <ActivityIndicator color={Colors.black} size="small" />
+              <ActivityIndicator color={theme.black} size="small" />
             ) : (
               <>
-                <MaterialCommunityIcons name="creation" size={20} color={Colors.black} />
-                <Text style={styles.aiButtonText}>Optimizar con IA</Text>
+                <MaterialCommunityIcons name="creation" size={20} color={theme.black} />
+                <Text style={[styles.aiButtonText, { color: theme.black }]}>Optimizar con IA</Text>
               </>
             )}
           </TouchableOpacity>
 
           {optimizedNotes.length > 0 && (
             <View style={styles.generatedNotes}>
-              <Text style={styles.label}>Notas Optimizadas:</Text>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Notas:</Text>
               {optimizedNotes.map((note) => (
-                <View key={note.id} style={styles.noteItem}>
+                <View key={note.id} style={[styles.noteItem, { backgroundColor: theme.surfaceLight }]}>
                   <Text style={styles.noteEmoji}>{note.emoji}</Text>
-                  <Text style={styles.noteText}>{note.text}</Text>
+                  <Text style={[styles.noteText, { color: theme.text }]}>{note.text}</Text>
                 </View>
               ))}
             </View>
@@ -177,8 +211,10 @@ export default function CreateAlarmScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Guardar Alarma</Text>
+        <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.primary }]} onPress={handleSave}>
+          <Text style={[styles.saveButtonText, { color: theme.black }]}>
+            {isEditing ? 'Guardar Cambios' : 'Guardar Alarma'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -186,175 +222,60 @@ export default function CreateAlarmScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-  },
+  container: { flex: 1, padding: Spacing.lg },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: Spacing.xl,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  scrollContent: {
-    paddingBottom: Spacing.xxl,
-  },
+  title: { fontSize: 24, fontWeight: 'bold' },
+  scrollContent: { paddingBottom: Spacing.xxl },
   timeSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-    gap: Spacing.md,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', marginBottom: Spacing.xl, gap: Spacing.md,
   },
+  timeInputWrapper: { alignItems: 'center' },
   timeInput: {
-    fontSize: 64,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primaryDull,
-    paddingHorizontal: Spacing.md,
+    fontSize: 64, fontWeight: 'bold',
+    borderBottomWidth: 2, paddingHorizontal: Spacing.md,
   },
-  periodSelector: {
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  periodBtn: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-  },
-  periodBtnActive: {
-    backgroundColor: Colors.primary,
-  },
-  periodText: {
-    color: Colors.textMuted,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  periodTextActive: {
-    color: Colors.black,
-  },
-  inputSection: {
-    marginBottom: Spacing.xl,
-  },
-  label: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-    marginBottom: Spacing.sm,
-    fontWeight: '500',
-  },
-  textInput: {
-    backgroundColor: Colors.surfaceLight,
-    color: Colors.text,
-    fontSize: 16,
-    padding: Spacing.md,
-    borderRadius: 12,
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
+  periodSelector: { borderRadius: 12, overflow: 'hidden' },
+  periodBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+  periodText: { fontSize: 16, fontWeight: 'bold' },
+  inputSection: { marginBottom: Spacing.xl },
+  label: { fontSize: 16, marginBottom: Spacing.sm, fontWeight: '500' },
+  textInput: { fontSize: 16, padding: Spacing.md, borderRadius: 12 },
+  textArea: { minHeight: 80, textAlignVertical: 'top' },
   daysContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: Spacing.sm,
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.sm,
   },
   dayCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceLight,
+    width: 40, height: 40, borderRadius: 20,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: 'transparent',
   },
-  dayCircleActive: {
-    backgroundColor: 'rgba(0, 229, 204, 0.2)',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  dayText: {
-    color: Colors.textMuted,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  dayTextActive: {
-    color: Colors.primary,
-  },
+  dayText: { fontSize: 14, fontWeight: 'bold' },
   aiSection: {
-    backgroundColor: 'rgba(0, 229, 204, 0.05)',
-    padding: Spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 204, 0.2)',
-    marginBottom: Spacing.xl,
+    padding: Spacing.md, borderRadius: 16,
+    borderWidth: 1, marginBottom: Spacing.xl,
   },
   aiHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md,
   },
-  aiTitle: {
-    color: Colors.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  aiTitle: { fontSize: 16, fontWeight: 'bold' },
   aiButton: {
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.md,
-    borderRadius: 12,
-    marginTop: Spacing.md,
-    gap: Spacing.sm,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    padding: Spacing.md, borderRadius: 12, marginTop: Spacing.md, gap: Spacing.sm,
   },
-  aiButtonDisabled: {
-    opacity: 0.5,
-  },
-  aiButtonText: {
-    color: Colors.black,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  generatedNotes: {
-    marginTop: Spacing.lg,
-  },
+  aiButtonDisabled: { opacity: 0.5 },
+  aiButtonText: { fontSize: 16, fontWeight: 'bold' },
+  generatedNotes: { marginTop: Spacing.lg },
   noteItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceLight,
-    padding: Spacing.md,
-    borderRadius: 8,
-    marginBottom: Spacing.sm,
-    gap: Spacing.sm,
+    flexDirection: 'row', alignItems: 'center',
+    padding: Spacing.md, borderRadius: 8, marginBottom: Spacing.sm, gap: Spacing.sm,
   },
-  noteEmoji: {
-    fontSize: 20,
-  },
-  noteText: {
-    color: Colors.text,
-    fontSize: 16,
-  },
-  footer: {
-    marginTop: 'auto',
-    marginBottom: Spacing.lg,
-  },
-  saveButton: {
-    backgroundColor: Colors.primary,
-    padding: Spacing.lg,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: Colors.black,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  noteEmoji: { fontSize: 20 },
+  noteText: { fontSize: 16 },
+  footer: { marginTop: 'auto', marginBottom: Spacing.lg },
+  saveButton: { padding: Spacing.lg, borderRadius: 16, alignItems: 'center' },
+  saveButtonText: { fontSize: 18, fontWeight: 'bold' },
 });

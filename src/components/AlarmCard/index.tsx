@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, Switch } from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Spacing } from '../../theme/theme';
+import { useRouter } from 'expo-router';
+import { useTheme } from '../../theme/ThemeContext';
+import { Spacing } from '../../theme/theme';
 import { Alarm, DayOfWeek } from '../../domain/entities/alarm';
+import { useAlarmStore } from '../../store/alarmStore';
 
 interface AlarmCardProps {
   alarm: Alarm;
@@ -12,32 +15,62 @@ interface AlarmCardProps {
 const DAYS: DayOfWeek[] = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 const AlarmCard: React.FC<AlarmCardProps> = ({ alarm, onToggle }) => {
+  const { theme } = useTheme();
+  const router = useRouter();
+  const deleteAlarm = useAlarmStore((state) => state.deleteAlarm);
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Eliminar alarma',
+      `Seguro que quieres eliminar "${alarm.title}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => deleteAlarm(alarm.id),
+        },
+      ]
+    );
+  };
+
+  const handleEdit = () => {
+    router.push({ pathname: '/create-alarm', params: { editAlarmId: alarm.id } });
+  };
+
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={handleEdit}
+      onLongPress={handleDelete}
       style={[
         styles.container,
-        alarm.isActive && styles.containerActive,
+        {
+          backgroundColor: theme.surface,
+          borderColor: alarm.isActive ? theme.primary : '#333',
+          shadowColor: alarm.isActive ? theme.primary : 'transparent',
+        },
         !alarm.isActive && styles.containerInactive,
       ]}
     >
-      {/* Header: Time & Switch */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+          <MaterialCommunityIcons name="delete-outline" size={20} color={theme.textMuted} />
+        </TouchableOpacity>
         <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>{alarm.time}</Text>
-          <Text style={styles.periodText}>{alarm.period}</Text>
+          <Text style={[styles.timeText, { color: theme.text }]}>{alarm.time}</Text>
+          <Text style={[styles.periodText, { color: theme.primary }]}>{alarm.period}</Text>
         </View>
         <Switch
           value={alarm.isActive}
           onValueChange={() => onToggle(alarm.id)}
-          trackColor={{ false: '#3e3e3e', true: Colors.primaryDull }}
-          thumbColor={alarm.isActive ? Colors.primary : '#f4f3f4'}
+          trackColor={{ false: '#3e3e3e', true: theme.primaryDull }}
+          thumbColor={alarm.isActive ? theme.primary : '#f4f3f4'}
         />
       </View>
 
-      {/* Title */}
-      <Text style={styles.titleText}>{alarm.title}</Text>
+      <Text style={[styles.titleText, { color: theme.textSecondary }]}>{alarm.title}</Text>
 
-      {/* Days Selection */}
       <View style={styles.daysContainer}>
         {DAYS.map((day) => {
           const isSelected = alarm.days.includes(day);
@@ -46,13 +79,13 @@ const AlarmCard: React.FC<AlarmCardProps> = ({ alarm, onToggle }) => {
               key={day}
               style={[
                 styles.dayCircle,
-                isSelected && styles.dayCircleActive,
+                isSelected && { backgroundColor: theme.primary + '33', borderColor: theme.primary },
               ]}
             >
               <Text
                 style={[
                   styles.dayText,
-                  isSelected && styles.dayTextActive,
+                  { color: isSelected ? theme.primary : theme.textMuted },
                 ]}
               >
                 {day}
@@ -62,26 +95,30 @@ const AlarmCard: React.FC<AlarmCardProps> = ({ alarm, onToggle }) => {
         })}
       </View>
 
-      {/* Divider */}
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: '#333' }]} />
 
-      {/* Notes Section */}
       <View style={styles.notesContainer}>
         {alarm.notes.map((note) => (
           <View key={note.id} style={styles.noteItem}>
             <MaterialCommunityIcons
-              name={note.completed ? "checkbox-marked-circle-outline" : "circle-outline"}
+              name={note.completed ? 'checkbox-marked-circle-outline' : 'circle-outline'}
               size={20}
-              color={note.completed ? Colors.primary : Colors.textMuted}
+              color={note.completed ? theme.primary : theme.textMuted}
             />
             <Text style={styles.noteEmoji}>{note.emoji}</Text>
-            <Text style={[styles.noteText, note.completed && styles.noteTextCompleted]}>
+            <Text
+              style={[
+                styles.noteText,
+                { color: theme.textSecondary },
+                note.completed && { textDecorationLine: 'line-through', color: theme.textMuted },
+              ]}
+            >
               {note.text}
             </Text>
           </View>
         ))}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -89,17 +126,11 @@ export default AlarmCard;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.surface,
     borderRadius: 24,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: '#333',
     width: '100%',
-  },
-  containerActive: {
-    borderColor: Colors.primary,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
@@ -115,23 +146,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xs,
   },
+  deleteBtn: {
+    padding: 4,
+  },
   timeContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    flex: 1,
+    marginLeft: Spacing.sm,
   },
   timeText: {
-    color: Colors.text,
     fontSize: 36,
     fontWeight: 'bold',
   },
   periodText: {
-    color: Colors.primary,
     fontSize: 16,
     marginLeft: 4,
     fontWeight: '600',
   },
   titleText: {
-    color: Colors.textSecondary,
     fontSize: 16,
     fontWeight: '500',
     marginBottom: Spacing.md,
@@ -147,22 +180,15 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  dayCircleActive: {
-    backgroundColor: 'rgba(0, 229, 204, 0.2)',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   dayText: {
-    color: Colors.textMuted,
     fontSize: 12,
     fontWeight: 'bold',
   },
-  dayTextActive: {
-    color: Colors.primary,
-  },
   divider: {
     height: 1,
-    backgroundColor: '#333',
     marginVertical: Spacing.md,
   },
   notesContainer: {
@@ -178,11 +204,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   noteText: {
-    color: Colors.textSecondary,
     fontSize: 14,
-  },
-  noteTextCompleted: {
-    textDecorationLine: 'line-through',
-    color: Colors.textMuted,
   },
 });

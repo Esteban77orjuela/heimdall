@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationService } from '../src/services/notificationService';
+import { ThemeProvider } from '../src/theme/ThemeContext';
 
 let Notifications: any = null;
 try {
@@ -40,20 +41,26 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen
-          name="create-alarm"
-          options={{ presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="alarm-overlay"
-          options={{
-            presentation: 'fullScreenModal',
-            animation: 'fade',
-          }}
-        />
-      </Stack>
+      <ThemeProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen
+            name="create-alarm"
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="alarm-overlay"
+            options={{
+              presentation: 'fullScreenModal',
+              animation: 'fade',
+            }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{ animation: 'slide_from_right' }}
+          />
+        </Stack>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

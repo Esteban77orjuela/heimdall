@@ -1,10 +1,9 @@
 import { Alarm, DayOfWeek } from "../domain/entities/alarm";
+
 let Notifications: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  Notifications = require('expo-notifications');
+  Notifications = require('expo-notifications'); // eslint-disable-line @typescript-eslint/no-require-imports
 } catch {
-  console.warn('[Heimdall] Notificaciones no disponibles en Expo Go.');
 }
 
 Notifications?.setNotificationHandler({
@@ -16,23 +15,16 @@ Notifications?.setNotificationHandler({
 });
 
 const DAY_TO_NUMBER: Record<DayOfWeek, number> = {
-  D: 1,
-  L: 2,
-  M: 3,
-  X: 4,
-  J: 5,
-  V: 6,
-  S: 7,
+  D: 1, L: 2, M: 3, X: 4, J: 5, V: 6, S: 7,
 };
 
 export const NotificationService = {
   async requestPermissions(): Promise<boolean> {
     if (!Notifications) return false;
-    const { status: existingStatus } =
-      await Notifications?.getPermissionsAsync();
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== "granted") {
-      const { status } = await Notifications?.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
     return finalStatus === "granted";
@@ -56,7 +48,7 @@ export const NotificationService = {
       : "Es hora!";
 
     if (alarm.days.length === 0) {
-      await Notifications?.scheduleNotificationAsync({
+      await Notifications.scheduleNotificationAsync({
         content: {
           title: alarm.title,
           body,
@@ -64,7 +56,7 @@ export const NotificationService = {
           data: { alarmId: alarm.id },
         },
         trigger: {
-          type: Notifications?.SchedulableTriggerInputTypes.DAILY,
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: hours,
           minute: minutes,
         },
@@ -73,7 +65,7 @@ export const NotificationService = {
     } else {
       for (const day of alarm.days) {
         const weekday = DAY_TO_NUMBER[day];
-        await Notifications?.scheduleNotificationAsync({
+        await Notifications.scheduleNotificationAsync({
           content: {
             title: alarm.title,
             body,
@@ -81,7 +73,7 @@ export const NotificationService = {
             data: { alarmId: alarm.id },
           },
           trigger: {
-            type: Notifications?.SchedulableTriggerInputTypes.WEEKLY,
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
             weekday,
             hour: hours,
             minute: minutes,
@@ -92,14 +84,34 @@ export const NotificationService = {
     }
   },
 
+  async scheduleSnooze(alarm: Alarm, minutes: number = 5): Promise<void> {
+    if (!Notifications) return;
+    await this.cancelAlarm(alarm.id);
+
+    const now = new Date();
+    const snoozeDate = new Date(now.getTime() + minutes * 60000);
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: alarm.title + " (Pospuesta)",
+        body: `Sonando en ${minutes} min`,
+        sound: true,
+        data: { alarmId: alarm.id, isSnooze: true },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: snoozeDate,
+      },
+      identifier: `${alarm.id}-snooze`,
+    });
+  },
+
   async cancelAlarm(alarmId: string): Promise<void> {
     if (!Notifications) return;
-    const scheduledNotifications =
-      await Notifications?.getAllScheduledNotificationsAsync();
-
-    for (const notif of scheduledNotifications) {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notif of scheduled) {
       if (notif.identifier.startsWith(alarmId)) {
-        await Notifications?.cancelScheduledNotificationAsync(notif.identifier);
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
       }
     }
   },

@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAlarmStore } from '../src/store/alarmStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { NotificationService } from '../src/services/notificationService';
 import * as Haptics from 'expo-haptics';
 
 export default function AlarmOverlayScreen() {
@@ -27,13 +28,12 @@ export default function AlarmOverlayScreen() {
     const hapticInterval = setInterval(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     }, 2000);
-
     return () => clearInterval(hapticInterval);
   }, []);
 
   if (!alarm) {
     return (
-      <View style={styles.errorContainer}>
+      <View style={[styles.container, styles.center]}>
         <Text style={styles.errorText}>Alarma no encontrada</Text>
         <TouchableOpacity style={styles.stopButton} onPress={() => router.back()}>
           <Text style={styles.buttonText}>Cerrar</Text>
@@ -52,6 +52,7 @@ export default function AlarmOverlayScreen() {
 
   const handleSnooze = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    NotificationService.scheduleSnooze(alarm, 5);
     router.replace('/');
   };
 
@@ -98,6 +99,7 @@ export default function AlarmOverlayScreen() {
 
       <View style={styles.actionsContainer}>
         <TouchableOpacity style={styles.snoozeButton} onPress={handleSnooze}>
+          <MaterialCommunityIcons name="sleep" size={24} color="#94A3B8" />
           <Text style={styles.snoozeButtonText}>Posponer 5 min</Text>
         </TouchableOpacity>
 
@@ -114,17 +116,16 @@ export default function AlarmOverlayScreen() {
   );
 }
 
+// Need to import MaterialCommunityIcons for the snooze icon
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F172A',
     padding: 20,
   },
-  errorContainer: {
-    flex: 1,
+  center: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
   },
   errorText: {
     color: '#EF4444',
@@ -222,10 +223,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   snoozeButton: {
+    flexDirection: 'row',
     backgroundColor: 'transparent',
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     borderWidth: 2,
     borderColor: '#334155',
   },
