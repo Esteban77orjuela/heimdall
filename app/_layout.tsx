@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationService } from '../src/services/notificationService';
-import { useUserStore } from '../src/store/userStore';
 
 let Notifications: any = null;
 try {
@@ -13,9 +12,8 @@ try {
 
 export default function RootLayout() {
   const router = useRouter();
-  const { checkSession, isAuthenticated, isLoading } = useUserStore();
+
   useEffect(() => {
-    checkSession();
     NotificationService.requestPermissions();
 
     if (!Notifications) return;
@@ -38,20 +36,12 @@ export default function RootLayout() {
       subscription?.remove();
       responseSubscription?.remove();
     };
-  }, [router, checkSession]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
-      router.replace('/auth' as any);
-    }
-  }, [isAuthenticated, isLoading, router]);
+  }, [router]);
 
   return (
     <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="auth" options={{ animation: 'fade' }} />
         <Stack.Screen
           name="create-alarm"
           options={{ presentation: 'modal' }}

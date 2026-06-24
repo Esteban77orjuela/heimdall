@@ -41,6 +41,16 @@ This document records all implementations, fixes, and progress made on the Heimd
 
 ---
 
+## [2026-06-24] - Removed Authentication
+
+- Removed login/register requirement per user request.
+- Deleted auth.tsx, userStore.ts, authService.ts, alarmDatabaseService.ts, appwriteConfig.ts.
+- Simplified _layout.tsx: removed auth redirect and session check.
+- Simplified alarmStore.ts: removed cloud sync methods and userId params.
+- App is now fully local-first with no backend dependency.
+
+---
+
 ## [2026-05-28] - Phase 4: Persistence & Code Audit
 
 ### Sprint 1 - State Persistence

@@ -3,19 +3,15 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alarm, Note } from '../domain/entities/alarm';
 import { NotificationService } from '../services/notificationService';
-import { AlarmDatabaseService } from '../services/alarmDatabaseService';
 
 interface AlarmState {
   alarms: Alarm[];
-  isSyncing: boolean;
-  addAlarm: (alarm: Alarm, userId?: string) => void;
-  toggleAlarm: (id: string, userId?: string) => void;
+  addAlarm: (alarm: Alarm) => void;
+  toggleAlarm: (id: string) => void;
   deleteAlarm: (id: string) => void;
-  updateAlarm: (id: string, updatedAlarm: Partial<Alarm>, userId?: string) => void;
+  updateAlarm: (id: string, updatedAlarm: Partial<Alarm>) => void;
   toggleNote: (alarmId: string, noteId: string) => void;
   addNoteToAlarm: (alarmId: string, note: Note) => void;
-  loadFromCloud: (userId: string) => Promise<void>;
-  syncToCloud: (userId: string) => Promise<void>;
 }
 
 const INITIAL_ALARMS: Alarm[] = [
@@ -37,17 +33,13 @@ export const useAlarmStore = create<AlarmState>()(
   persist(
     (set, get) => ({
       alarms: INITIAL_ALARMS,
-      isSyncing: false,
 
-      addAlarm: (alarm, userId) => {
+      addAlarm: (alarm) => {
         set((state) => ({ alarms: [alarm, ...state.alarms] }));
         if (alarm.isActive) NotificationService.scheduleAlarm(alarm);
-        if (userId) {
-          AlarmDatabaseService.upsertAlarm(userId, alarm).catch(console.error);
-        }
       },
 
-      toggleAlarm: (id, userId) => {
+      toggleAlarm: (id) => {
         set((state) => ({
           alarms: state.alarms.map((alarm) =>
             alarm.id === id ? { ...alarm, isActive: !alarm.isActive } : alarm
@@ -60,9 +52,6 @@ export const useAlarmStore = create<AlarmState>()(
           } else {
             NotificationService.cancelAlarm(id);
           }
-          if (userId) {
-            AlarmDatabaseService.upsertAlarm(userId, updatedAlarm).catch(console.error);
-          }
         }
       },
 
@@ -71,21 +60,17 @@ export const useAlarmStore = create<AlarmState>()(
           alarms: state.alarms.filter((alarm) => alarm.id !== id),
         }));
         NotificationService.cancelAlarm(id);
-        AlarmDatabaseService.deleteAlarm(id).catch(console.error);
       },
 
-      updateAlarm: (id, updatedFields, userId) => {
+      updateAlarm: (id, updatedFields) => {
         set((state) => ({
           alarms: state.alarms.map((alarm) =>
             alarm.id === id ? { ...alarm, ...updatedFields } : alarm
           ),
         }));
         const updatedAlarm = get().alarms.find((a) => a.id === id);
-        if (updatedAlarm) {
-          if (updatedAlarm.isActive) NotificationService.scheduleAlarm(updatedAlarm);
-          if (userId) {
-            AlarmDatabaseService.upsertAlarm(userId, updatedAlarm).catch(console.error);
-          }
+        if (updatedAlarm && updatedAlarm.isActive) {
+          NotificationService.scheduleAlarm(updatedAlarm);
         }
       },
 
@@ -108,32 +93,6 @@ export const useAlarmStore = create<AlarmState>()(
             alarm.id === alarmId ? { ...alarm, notes: [...alarm.notes, note] } : alarm
           ),
         })),
-
-      loadFromCloud: async (userId) => {
-        set({ isSyncing: true });
-        try {
-          const cloudAlarms = await AlarmDatabaseService.getAlarms(userId);
-          if (cloudAlarms.length > 0) {
-            set({ alarms: cloudAlarms });
-          }
-        } catch (error) {
-          console.error('[AlarmStore] Error cargando desde la nube:', error);
-        } finally {
-          set({ isSyncing: false });
-        }
-      },
-
-      syncToCloud: async (userId) => {
-        set({ isSyncing: true });
-        try {
-          const { alarms } = get();
-          await AlarmDatabaseService.syncAlarms(userId, alarms);
-        } catch (error) {
-          console.error('[AlarmStore] Error sincronizando con la nube:', error);
-        } finally {
-          set({ isSyncing: false });
-        }
-      },
     }),
     {
       name: 'heimdall-alarm-storage',

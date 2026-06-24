@@ -44,12 +44,11 @@ This document details the development roadmap for Heimdall following the 13-phas
 - Sprint 3: Groq AI API for note-to-task conversion. -> COMPLETED
 - Sprint 4: Alarm overlay screen. -> COMPLETED
 
-## FASE 5 - BASE DE DATOS (Current Sprint)
+## FASE 5 - BASE DE DATOS
 
-- **Platform:** Appwrite Cloud (PostgreSQL).
-- **Goal:** Sync local alarms with cloud database.
-- **Auth:** Appwrite Auth (email/password).
-- **Status:** SDK installed, services written, Auth working. Pending database collection creation in Appwrite Console.
+- **Platform:** AsyncStorage (persistencia local).
+- **Goal:** Alarms persist on device without cloud dependency.
+- **Auth:** Removed. App is fully local-first.
 
 ## FASE 6 - TESTING
 
@@ -95,4 +94,4 @@ This document details the development roadmap for Heimdall following the 13-phas
 
 ## Current Status
 
-All Phase 4 sprints are complete. Current focus is Phase 5 (Database/Cloud sync). Next step: create alarms collection in Appwrite Console.
+All Phase 4 sprints are complete. Auth removed per user request. App is fully local-first. Future: cloud sync optional.
